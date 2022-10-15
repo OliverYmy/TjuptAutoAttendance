@@ -262,7 +262,7 @@ class Bot:
             available_choices = []
             for item in captcha_options_list:
                 if item[1] in s:
-                    available_choices.append(item[2])
+                    available_choices.append(item[0])
 
             if len(available_choices) == 0:
                 self.log(f"No choice found!")
