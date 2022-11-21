@@ -2,7 +2,7 @@ name: Auto Attendance
 
 on:
   schedule:
-    - cron: '59 21,22,23 * * *'
+    - cron: '0 0,22,23 * * *'
   workflow_dispatch:
 
 jobs:
