@@ -2,3 +2,10 @@ __pycache__/
 .vscode/
 data/
 config/config.ini
+# 虚拟环境
+venv/
+
+.DS_Store
+
+# log
+log/
