@@ -21,9 +21,13 @@ from bs4 import BeautifulSoup
 from lib import debug, error, info, warn
 
 
+class BotError(Exception):
+    ...
+
+
 class Bot:
     def __init__(
-        self, username, password, base_url, cookies_path, img_path, *args, **kw_args
+        self, username, password, base_url, cookies_path, img_path
     ):
         self.username = username
         self.password = password
@@ -33,15 +37,6 @@ class Bot:
 
         self.session = requests.Session()
         self.session.headers.update(
-            {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36"
-            }
-        )
-        self.session.cookies = self.load_cookies()
-
-    """
-        self.douban_session = requests.Session()
-        self.douban_session.headers.update(
             {
                 "Accept": "*/*",
                 "Accept-Encoding": "gzip, deflate, br",
@@ -62,11 +57,7 @@ class Bot:
                 "X-Requested-With": "XMLHttpRequest",
             }
         )
-        self.douban_data = self.load_douban_data()
-    """
-
-    # def log(self, *args, **kw) -> None:
-    #     return print("[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"), *args, **kw)
+        self.session.cookies = self.load_cookies()
 
     def load_cookies(self) -> RequestsCookieJar:
         '''
@@ -120,49 +111,6 @@ class Bot:
             else:
                 error(f"Log in error after 10 tries")
                 return False
-
-    """
-    def load_douban_data(self) -> dict:
-        douban_data = {}
-        if os.path.exists(self.img_path):
-            try:
-                with open(self.img_path, encoding="utf-8") as file:
-                    douban_data = json.load(file)
-                self.log(f"Douban data loaded from file: {self.img_path}")
-                return douban_data
-            except Exception as e:
-                self.log(f"Reading douban data error: {e}")
-        else:
-            self.log(f"Douban data file not exists: {self.img_path}")
-        return douban_data
-
-    def save_douban_data(self) -> bool:
-        try:
-            os.makedirs(os.path.dirname(self.img_path), 0o755, True)
-            with open(self.img_path, "w", encoding="utf-8") as f:
-                json.dump(self.douban_data, f, ensure_ascii=False, indent=1)
-                self.log(f"Douban data wrote to file: {self.img_path}")
-            return True
-        except:
-            return False
-
-    def get_id(self, title: str) -> str:
-        if title in self.douban_data:
-            return self.douban_data[title]
-
-        time.sleep(random.random() * 5)
-        response = self.douban_session.get(
-            f"https://movie.douban.com/j/subject_suggest?q={requests.utils.requote_uri(title)}"
-        )
-        try:
-            url_id = re.findall(r"(?<=/)p\d+(?=\.)", response.json()[0]["img"])[0]
-            self.douban_data[title] = url_id
-            self.log(f'Title "{title}" returned id "{url_id}"')
-            return url_id
-        except Exception as e:
-            self.log(f"Error: {e}, title: {title}, response: {response.text}")
-            return None
-    """
 
     def auto_attendance(self) -> bool:
         '''
@@ -232,8 +180,6 @@ class Bot:
                 error("Save image failed!")
                 return False
 
-            # captcha_image_id = re.findall(r"(?<=/)p\d+(?=\.)", captcha_image_url)[0]
-
             captcha_options = set(
                 re.findall(
                     r'<input name="answer" type="radio" value="(\d+-\d+-\d+ \d+:\d+:\d+&amp;(\d+))"/>([^<>]*?)<',
@@ -244,27 +190,6 @@ class Bot:
             for value, _id, title in captcha_options:
                 value = value.replace("&amp;", "&")
                 captcha_options_list.append((value, title))
-
-            """
-            for value, id, title in captcha_options:
-                value = value.replace("&amp;", "&")
-                url_id = self.get_id(title)
-                if captcha_image_id == url_id:
-                    available_choices.append(
-                        {
-                            "value": value,
-                            "id": id,
-                            "title": title,
-                            "url_id": url_id,
-                            "captcha_image": captcha_image_url,
-                        }
-                    )
-                    self.log(
-                        f"Available choice found: {json.dumps(available_choices[-1], ensure_ascii=False)}"
-                    )
-
-            self.save_douban_data()
-            """
 
             baidu_url = "https://graph.baidu.com/upload"
             files = {
@@ -361,4 +286,5 @@ if __name__ == "__main__":
 
     bot = Bot(**config)
     if not bot.auto_attendance():
-        raise
+        error(f"{config['username']} 签到失败！")
+        raise BotError("签到失败")
