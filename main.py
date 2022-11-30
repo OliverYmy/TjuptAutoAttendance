@@ -6,7 +6,6 @@ Created on 2022/09/28 07:58:19
 @ Description: auto attendance in TJUPT
 """
 
-import json
 import os
 import pickle
 import random
@@ -14,15 +13,21 @@ import re
 import time
 from argparse import ArgumentParser
 from configparser import ConfigParser
-from datetime import datetime
 
 import requests
+from requests.cookies import RequestsCookieJar
 from bs4 import BeautifulSoup
+
+from lib import debug, error, info, warn
+
+
+class BotError(Exception):
+    ...
 
 
 class Bot:
     def __init__(
-        self, username, password, base_url, cookies_path, img_path, *args, **kw_args
+        self, username, password, base_url, cookies_path, img_path
     ):
         self.username = username
         self.password = password
@@ -32,15 +37,6 @@ class Bot:
 
         self.session = requests.Session()
         self.session.headers.update(
-            {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36"
-            }
-        )
-        self.session.cookies = self.load_cookies()
-
-    """
-        self.douban_session = requests.Session()
-        self.douban_session.headers.update(
             {
                 "Accept": "*/*",
                 "Accept-Encoding": "gzip, deflate, br",
@@ -61,30 +57,37 @@ class Bot:
                 "X-Requested-With": "XMLHttpRequest",
             }
         )
-        self.douban_data = self.load_douban_data()
-    """
+        self.session.cookies = self.load_cookies()
 
-    def log(self, *args, **kw) -> None:
-        return print("[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"), *args, **kw)
+    def load_cookies(self) -> RequestsCookieJar:
+        '''
+        从`cookie_path尝试加载cookie
 
-    def load_cookies(self) -> requests.cookies.RequestsCookieJar:
+        如果不存在则返回一个空的
+        '''
         cookies = None
-        if os.path.exists(self.cookies_path):
+        if os.path.isfile(self.cookies_path):
             try:
                 with open(self.cookies_path, "rb") as file:
                     cookies = pickle.load(file)
-                self.log(f"Cookies loaded from file: {self.cookies_path}")
+                debug(f"Cookies loaded from file: {self.cookies_path}")
                 return cookies
             except Exception as e:
-                self.log(f"Reading cookies error: {e}")
+                warn(f"Reading cookies error: {e}")
         else:
-            self.log(f"Cookies file not exists: {self.cookies_path}")
+            warn(f"Cookies file not exists: {self.cookies_path}")
         if cookies:
             return cookies
         else:
-            return requests.cookies.RequestsCookieJar()
+            return RequestsCookieJar()
 
+    # 用 retry 库写一下应该会好看点
     def login(self) -> bool:
+        '''
+        尝试登陆
+
+        重试次数为10次
+        '''
         try_time = 10
         while True:
             _ = self.session.get(f"{self.base_url}login.php")
@@ -96,118 +99,86 @@ class Bot:
                 },
             )
             if "logout.php" in resopnse.text:
-                self.log(f"Logged in successfully")
+                info("Logged in successfully")
                 os.makedirs(os.path.dirname(self.cookies_path), 0o755, True)
                 with open(self.cookies_path, "wb") as f:
                     pickle.dump(self.session.cookies, f)
-                self.log(f"Cookies wrote to file: {self.cookies_path}")
+                debug(f"Cookies wrote to file: {self.cookies_path}")
                 return True
             try_time -= 1
             if try_time > 0:
-                self.log(f"Log in error, try again ({try_time} left)")
+                debug(f"Log in error, try again ({try_time} left)")
             else:
-                self.log(f"Log in error after 10 tries")
+                error(f"Log in error after 10 tries")
                 return False
 
-    """
-    def load_douban_data(self) -> dict:
-        douban_data = {}
-        if os.path.exists(self.img_path):
-            try:
-                with open(self.img_path, encoding="utf-8") as file:
-                    douban_data = json.load(file)
-                self.log(f"Douban data loaded from file: {self.img_path}")
-                return douban_data
-            except Exception as e:
-                self.log(f"Reading douban data error: {e}")
-        else:
-            self.log(f"Douban data file not exists: {self.img_path}")
-        return douban_data
-
-    def save_douban_data(self) -> bool:
-        try:
-            os.makedirs(os.path.dirname(self.img_path), 0o755, True)
-            with open(self.img_path, "w", encoding="utf-8") as f:
-                json.dump(self.douban_data, f, ensure_ascii=False, indent=1)
-                self.log(f"Douban data wrote to file: {self.img_path}")
-            return True
-        except:
-            return False
-
-    def get_id(self, title: str) -> str:
-        if title in self.douban_data:
-            return self.douban_data[title]
-
-        time.sleep(random.random() * 5)
-        response = self.douban_session.get(
-            f"https://movie.douban.com/j/subject_suggest?q={requests.utils.requote_uri(title)}"
-        )
-        try:
-            url_id = re.findall(r"(?<=/)p\d+(?=\.)", response.json()[0]["img"])[0]
-            self.douban_data[title] = url_id
-            self.log(f'Title "{title}" returned id "{url_id}"')
-            return url_id
-        except Exception as e:
-            self.log(f"Error: {e}, title: {title}, response: {response.text}")
-            return None
-    """
-
     def auto_attendance(self) -> bool:
+        '''
+        尝试5次签到
+        '''
         try_time = 5
         while True:
             if self.auto_attendance_once():
-                self.log(f"Attended successfully")
+                info("Attended successfully")
                 return True
             time.sleep(random.random() * 5)
             try_time -= 1
             if try_time > 0:
-                self.log(f"Attend error, try again ({try_time} left)")
+                debug(f"Attend error, try again ({try_time} left)")
             else:
-                self.log(f"Attend error after 5 tries")
+                error(f"Attend error after 5 tries")
                 return False
 
-    def save_image(self, captcha_image_url) -> bool:
+    def save_image(self, captcha_image_url: str) -> bool:
+        '''
+        保存图片
+
+        如果成功返回 `True`
+
+        :param captcha_image_url: 验证码链接
+        '''
         try:
             captcha_image_response = requests.get(
                 f"{self.base_url}{captcha_image_url}", stream=True
             )
             if captcha_image_response.status_code != 200:
-                self.log("Captcha image response failed!")
+                debug("Captcha image response failed!")
                 return False
             os.makedirs(os.path.dirname(self.img_path), 0o755, True)
             with open(self.img_path, "wb") as f:
                 f.write(captcha_image_response.content)
-            self.log(f"Image wrote to file: {self.img_path}")
+            info(f"Image wrote to file: {self.img_path}")
             return True
         except:
             return False
 
     def auto_attendance_once(self) -> bool:
+        '''
+        仅尝试一次签到
+        '''
         try:
             response = self.session.get(f"{self.base_url}attendance.php")
             if "login.php" in response.url:
-                self.log("Needed to log in")
+                debug("Needed to log in")
                 if not self.login():
                     return False
                 response = self.session.get(f"{self.base_url}attendance.php")
 
             text = response.text
             if "今日已签到" in text:
-                self.log('"今日已签到" found, already attended')
+                debug('"今日已签到" found, already attended')
                 return True
 
             tree = BeautifulSoup(text, "html.parser")
 
             captcha_image = tree.select_one(".captcha > tr > td > img")
             if not captcha_image:
-                self.log("No captcha image found")
+                warn("No captcha image found")
                 return False
             captcha_image_url = captcha_image.attrs["src"]
             if not self.save_image(captcha_image_url):
-                self.log("Save image failed!")
+                error("Save image failed!")
                 return False
-
-            # captcha_image_id = re.findall(r"(?<=/)p\d+(?=\.)", captcha_image_url)[0]
 
             captcha_options = set(
                 re.findall(
@@ -216,30 +187,9 @@ class Bot:
                 )
             )
             captcha_options_list = []
-            for value, id, title in captcha_options:
+            for value, _id, title in captcha_options:
                 value = value.replace("&amp;", "&")
                 captcha_options_list.append((value, title))
-
-            """
-            for value, id, title in captcha_options:
-                value = value.replace("&amp;", "&")
-                url_id = self.get_id(title)
-                if captcha_image_id == url_id:
-                    available_choices.append(
-                        {
-                            "value": value,
-                            "id": id,
-                            "title": title,
-                            "url_id": url_id,
-                            "captcha_image": captcha_image_url,
-                        }
-                    )
-                    self.log(
-                        f"Available choice found: {json.dumps(available_choices[-1], ensure_ascii=False)}"
-                    )
-
-            self.save_douban_data()
-            """
 
             baidu_url = "https://graph.baidu.com/upload"
             files = {
@@ -265,21 +215,23 @@ class Bot:
                     available_choices.append(item[0])
 
             if len(available_choices) == 0:
-                self.log(f"No choice found!")
+                warn(f"No choice found!")
                 return False
             elif len(available_choices) > 1:
-                self.log(f"{len(available_choices)} choices found!")
+                debug(f"{len(available_choices)} choices found!")
                 return False
             else:
                 data = {"answer": available_choices[0], "submit": "提交"}
-                response = self.session.post(f"{self.base_url}attendance.php", data)
+                response = self.session.post(
+                    f"{self.base_url}attendance.php", data)
                 if "签到成功" in response.text:
                     return True
                 else:
-                    self.log(f'"签到成功" not found, response_text: {response.text}')
+                    warn(
+                        f'"签到成功" not found, response_text: {response.text}')
                     return False
         except Exception as e:
-            self.log(f"Error: {e}")
+            error(f"Error: {e}")
             return False
 
 
@@ -292,15 +244,18 @@ if __name__ == "__main__":
         "img_path": "data/image.png",
     }
 
-    argument_parser = ArgumentParser(description="Auto adttendance bot for TJUPT.")
+    argument_parser = ArgumentParser(
+        description="Auto adttendance bot for TJUPT.")
     argument_parser.add_argument(
         "-i",
         "--ini-path",
         default="config/config.ini",
         help="File path for config.ini (default: config/config.ini). The arguments provided by command line will override the settings in this file.",
     )
-    argument_parser.add_argument("-u", "--username", help="Your username for TJUPT.")
-    argument_parser.add_argument("-p", "--password", help="Your password for TJUPT.")
+    argument_parser.add_argument(
+        "-u", "--username", help="Your username for TJUPT.")
+    argument_parser.add_argument(
+        "-p", "--password", help="Your password for TJUPT.")
     argument_parser.add_argument(
         "-b",
         "--base-url",
@@ -318,11 +273,12 @@ if __name__ == "__main__":
     )
     args = argument_parser.parse_args()
 
-    if args.ini_path and os.path.exists(args.ini_path):
+    if args.ini_path and os.path.isfile(args.ini_path):
         config_parser = ConfigParser()
         config_parser.read(args.ini_path, "utf-8")
         for key in config:
-            config[key] = str(config_parser.get("Bot", key, fallback=config[key]))
+            config[key] = str(config_parser.get(
+                "Bot", key, fallback=config[key]))
 
     for key, value in args._get_kwargs():
         if value:
@@ -330,4 +286,5 @@ if __name__ == "__main__":
 
     bot = Bot(**config)
     if not bot.auto_attendance():
-        raise
+        error(f"{config['username']} 签到失败！")
+        raise BotError("签到失败")
