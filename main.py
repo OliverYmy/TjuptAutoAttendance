@@ -38,32 +38,6 @@ class Bot:
         )
         self.session.cookies = self.load_cookies()
 
-    """
-        self.douban_session = requests.Session()
-        self.douban_session.headers.update(
-            {
-                "Accept": "*/*",
-                "Accept-Encoding": "gzip, deflate, br",
-                "Accept-Language": "zh-CN,zh-TW;q=0.9,zh;q=0.8",
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "DNT": "1",
-                "Host": "movie.douban.com",
-                "Pragma": "no-cache",
-                "Referer": "https://movie.douban.com/",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36",
-                "sec-ch-ua": '"Chromium";v="100", " Not A;Brand";v="99", "Google Chrome";v="100"',
-                "sec-ch-ua-mobile": "?0",
-                "sec-ch-ua-platform": '"Windows"',
-                "Sec-Fetch-Dest": "empty",
-                "Sec-Fetch-Mode": "cors",
-                "Sec-Fetch-Site": "same-origin",
-                "X-Requested-With": "XMLHttpRequest",
-            }
-        )
-        self.douban_data = self.load_douban_data()
-    """
-
     def log(self, *args, **kw) -> None:
         return print("[%s]" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"), *args, **kw)
 
@@ -108,49 +82,6 @@ class Bot:
             else:
                 self.log(f"Log in error after 10 tries")
                 return False
-
-    """
-    def load_douban_data(self) -> dict:
-        douban_data = {}
-        if os.path.exists(self.img_path):
-            try:
-                with open(self.img_path, encoding="utf-8") as file:
-                    douban_data = json.load(file)
-                self.log(f"Douban data loaded from file: {self.img_path}")
-                return douban_data
-            except Exception as e:
-                self.log(f"Reading douban data error: {e}")
-        else:
-            self.log(f"Douban data file not exists: {self.img_path}")
-        return douban_data
-
-    def save_douban_data(self) -> bool:
-        try:
-            os.makedirs(os.path.dirname(self.img_path), 0o755, True)
-            with open(self.img_path, "w", encoding="utf-8") as f:
-                json.dump(self.douban_data, f, ensure_ascii=False, indent=1)
-                self.log(f"Douban data wrote to file: {self.img_path}")
-            return True
-        except:
-            return False
-
-    def get_id(self, title: str) -> str:
-        if title in self.douban_data:
-            return self.douban_data[title]
-
-        time.sleep(random.random() * 5)
-        response = self.douban_session.get(
-            f"https://movie.douban.com/j/subject_suggest?q={requests.utils.requote_uri(title)}"
-        )
-        try:
-            url_id = re.findall(r"(?<=/)p\d+(?=\.)", response.json()[0]["img"])[0]
-            self.douban_data[title] = url_id
-            self.log(f'Title "{title}" returned id "{url_id}"')
-            return url_id
-        except Exception as e:
-            self.log(f"Error: {e}, title: {title}, response: {response.text}")
-            return None
-    """
 
     def auto_attendance(self) -> bool:
         try_time = 5
