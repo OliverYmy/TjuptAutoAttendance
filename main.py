@@ -151,27 +151,6 @@ class Bot:
                 value = value.replace("&amp;", "&")
                 captcha_options_list.append((value, title))
 
-            """
-            for value, id, title in captcha_options:
-                value = value.replace("&amp;", "&")
-                url_id = self.get_id(title)
-                if captcha_image_id == url_id:
-                    available_choices.append(
-                        {
-                            "value": value,
-                            "id": id,
-                            "title": title,
-                            "url_id": url_id,
-                            "captcha_image": captcha_image_url,
-                        }
-                    )
-                    self.log(
-                        f"Available choice found: {json.dumps(available_choices[-1], ensure_ascii=False)}"
-                    )
-
-            self.save_douban_data()
-            """
-
             baidu_url = "https://graph.baidu.com/upload"
             files = {
                 "tn": (None, "pc"),
