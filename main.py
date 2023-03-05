@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 """
 Created on 2022/09/28 07:58:19
-@ Author : Oliver Yuan
+@ Author : Oliver
 @ Email  : zhuimengdisheng@outlook.com
 @ Description: auto attendance in TJUPT
 """
