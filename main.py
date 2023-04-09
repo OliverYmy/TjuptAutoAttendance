@@ -3,7 +3,7 @@
 Created on 2022/09/28 07:58:19
 @ Author : Oliver
 @ Email  : zhuimengdisheng@outlook.com
-@ Description: auto attendance in TJUPT
+@ Description: auto attendance in TJUPT; expired on 2023/04/09
 """
 
 import json
