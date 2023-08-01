@@ -241,3 +241,4 @@ if __name__ == "__main__":
     bot = Bot(**config)
     if not bot.auto_attendance():
         raise
+    
